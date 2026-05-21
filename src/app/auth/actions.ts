@@ -78,8 +78,6 @@ export async function signOut() {
 export async function completeOnboarding(formData: FormData) {
   const supabase = await createClient();
 
-  const isCisRegistered = formData.get("isCisRegistered") === "true";
-  const isVatRegistered = formData.get("isVatRegistered") === "true";
   const accreditationNumber = formData.get("accreditationNumber") as string;
 
   const { data: { user } } = await supabase.auth.getUser();
@@ -95,7 +93,7 @@ export async function completeOnboarding(formData: FormData) {
     .eq("id", user.id)
     .single();
 
-  const updateData: any = {
+  const updateData: Record<string, string | boolean> = {
     subscription_status: "trialing",
     onboarding_completed: true,
     trial_ends_at: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
