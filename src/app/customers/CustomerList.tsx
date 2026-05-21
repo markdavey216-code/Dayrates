@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
 import { Search, Plus, MoreVertical, Trash2, Edit, Phone, Mail, MapPin, Building2 } from "lucide-react";
 import { deleteCustomer, type CustomerFormData } from "./actions";
 import CustomerForm from "./CustomerForm";
@@ -22,7 +21,6 @@ interface Customer {
 }
 
 export default function CustomerList() {
-  const router = useRouter();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(true);

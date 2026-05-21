@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { customerSchema, type CustomerFormData } from "./actions";
 import { createCustomer, updateCustomer } from "./actions";
 import { X } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 
 interface CustomerFormProps {
   customer?: CustomerFormData;
@@ -39,9 +39,6 @@ export default function CustomerForm({ customer, onCancel }: CustomerFormProps) 
       site_notes: "",
     },
   });
-
-  const isVatRegistered = watch("is_vat_registered");
-  const isCisContractor = watch("is_cis_contractor");
 
   const onSubmit = async (data: CustomerFormData) => {
     setIsSubmitting(true);
