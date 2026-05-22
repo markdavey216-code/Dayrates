@@ -65,7 +65,7 @@ export async function updateSession(request: NextRequest) {
 
   // Case 2: User session exists
   // We need to check onboarding status to ensure they don't skip it
-  const { data: profile, error: profileError } = await supabase
+  const { data: profile } = await supabase
     .from("profiles")
     .select("onboarding_completed")
     .eq("id", user.id)
