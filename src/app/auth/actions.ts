@@ -51,7 +51,7 @@ export async function signup(formData: FormData) {
   // Manually update the profile to ensure business_name and trade_type are set
   // because the current trigger only handles full_name.
   if (data.user) {
-    const { error: profileError } = await supabase
+    const { error } = await supabase
       .from("profiles")
       .update({
         business_name: businessName,
@@ -59,8 +59,8 @@ export async function signup(formData: FormData) {
       })
       .eq("id", data.user.id);
 
-    if (profileError) {
-      console.error("Error updating profile:", profileError);
+    if (error) {
+      console.error("Error updating profile:", error);
     }
   }
 
