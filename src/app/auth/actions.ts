@@ -78,6 +78,9 @@ export async function signOut() {
 export async function completeOnboarding(formData: FormData) {
   const supabase = await createClient();
 
+  const businessName = formData.get("businessName") as string;
+  const companyAddress = formData.get("companyAddress") as string;
+  const companyPhone = formData.get("companyPhone") as string;
   const accreditationNumber = formData.get("accreditationNumber") as string;
 
   const { data: { user } } = await supabase.auth.getUser();
@@ -94,13 +97,14 @@ export async function completeOnboarding(formData: FormData) {
     .single();
 
   const updateData: Record<string, string | boolean> = {
+    business_name: businessName,
+    company_address: companyAddress,
+    company_phone: companyPhone,
     subscription_status: "trialing",
     onboarding_completed: true,
     trial_ends_at: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
   };
 
-  // We could also add is_cis_registered/is_vat_registered to profiles if we want, 
-  // but for now let's just handle the accreditation numbers.
   if (profile?.trade_type === "plumber") {
     updateData.gas_safe_number = accreditationNumber;
   } else {
@@ -113,6 +117,7 @@ export async function completeOnboarding(formData: FormData) {
     .eq("id", user.id);
 
   if (error) {
+    console.error("Onboarding update error:", error);
     return { error: error.message };
   }
 
