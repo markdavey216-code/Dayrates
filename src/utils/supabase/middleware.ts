@@ -2,8 +2,10 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function updateSession(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({
-    request,
+  let response = NextResponse.next({
+    request: {
+      headers: request.headers,
+    },
   });
 
   const supabase = createServerClient(
@@ -18,75 +20,76 @@ export async function updateSession(request: NextRequest) {
           cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value)
           );
-          supabaseResponse = NextResponse.next({
+          response = NextResponse.next({
             request,
           });
           cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
+            response.cookies.set(name, value, options)
           );
         },
       },
     }
   );
 
-  // IMPORTANT: Avoid writing any logic between createServerClient and
-  // supabase.auth.getUser(). A simple mistake can make it very hard to debug
-  // auth issues.
-
+  // This will refresh session if expired - MUST be called before any other supabase call
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   const url = request.nextUrl.clone();
+  const path = url.pathname;
 
-  // Protected routes
-  const protectedPaths = ["/dashboard", "/builder", "/calendar", "/customers", "/tax", "/onboarding"];
-  const isProtectedPath = protectedPaths.some(path => url.pathname.startsWith(path));
+  // Public paths that don't need auth check beyond basic user detection
+  const isAuthPath = path === "/login" || path === "/signup";
+  const isLandingPage = path === "/";
+  // App paths that REQUIRE auth
+  const isAppPath = [
+    "/dashboard",
+    "/builder",
+    "/calendar",
+    "/customers",
+    "/tax",
+    "/onboarding",
+  ].some((p) => path.startsWith(p));
 
-  if (!user && isProtectedPath) {
-    // no user, potentially respond by redirecting the user to the login page
-    url.pathname = "/login";
-    return NextResponse.redirect(url);
+  // Case 1: No user session
+  if (!user) {
+    // If trying to access app, send to login
+    if (isAppPath) {
+      url.pathname = "/login";
+      return NextResponse.redirect(url);
+    }
+    // Otherwise allow access to landing, login, signup
+    return response;
   }
 
-  if (user) {
-    // If user is logged in, check if they need onboarding
-    // Fetch profile
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("onboarding_completed")
-      .eq("id", user.id)
-      .single();
+  // Case 2: User session exists
+  // We need to check onboarding status to ensure they don't skip it
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("onboarding_completed")
+    .eq("id", user.id)
+    .single();
 
-    const hasCompletedOnboarding = profile?.onboarding_completed;
+  // Handle case where profile might not exist yet (should be rare due to trigger)
+  // or if there's a transient error. We default to not completed to be safe.
+  const onboardingCompleted = profile?.onboarding_completed === true;
 
-    if (!hasCompletedOnboarding && url.pathname !== "/onboarding" && isProtectedPath) {
+  // A. If not completed onboarding and not on onboarding page -> send to onboarding
+  if (!onboardingCompleted && path !== "/onboarding") {
+    // Only redirect if they are on an app path, auth path, or landing
+    if (isAppPath || isAuthPath || isLandingPage) {
       url.pathname = "/onboarding";
       return NextResponse.redirect(url);
     }
-
-    if (hasCompletedOnboarding && url.pathname === "/onboarding") {
-      url.pathname = "/dashboard";
-      return NextResponse.redirect(url);
-    }
-
-    // Redirect logged in users away from auth pages
-    if (url.pathname === "/login" || url.pathname === "/signup" || url.pathname === "/") {
-      url.pathname = "/dashboard";
-      return NextResponse.redirect(url);
-    }
   }
 
-  // IMPORTANT: You *must* return the supabaseResponse object as it is. If you're
-  // creating a new response object with NextResponse.next() make sure to:
-  // 1. Pass the request in it, like so:
-  //    const myNewResponse = NextResponse.next({
-  //      request,
-  //    })
-  // 2. Copy over the cookies, like so:
-  //    myNewResponse.cookies.setAll(supabaseResponse.cookies.getAll())
-  // 3. Change the myNewResponse object to fit your needs, but remember that it
-  //    needs to have the cookies from the supabaseResponse object.
+  // B. If completed onboarding and on onboarding page or auth page or landing -> send to dashboard
+  if (onboardingCompleted && (path === "/onboarding" || isAuthPath || isLandingPage)) {
+    url.pathname = "/dashboard";
+    return NextResponse.redirect(url);
+  }
 
-  return supabaseResponse;
+  // Allow through to the requested app path (dashboard, builder, etc.)
+  return response;
 }
