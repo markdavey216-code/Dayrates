@@ -3,7 +3,7 @@
 import { useForm } from "react-hook-form";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { customerSchema, type CustomerFormData } from "./actions";
+import { customerSchema, type CustomerFormData } from "./schema";
 import { createCustomer, updateCustomer } from "./actions";
 import { X } from "lucide-react";
 import { useState } from "react";
@@ -11,9 +11,10 @@ import { useState } from "react";
 interface CustomerFormProps {
   customer?: CustomerFormData;
   onCancel: () => void;
+  onSuccess?: () => void;
 }
 
-export default function CustomerForm({ customer, onCancel }: CustomerFormProps) {
+export default function CustomerForm({ customer, onCancel, onSuccess }: CustomerFormProps) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -22,8 +23,7 @@ export default function CustomerForm({ customer, onCancel }: CustomerFormProps) 
     register,
     handleSubmit,
     formState: { errors },
-    watch,
-  } = useForm<CustomerFormData>({
+  } = useForm({
     resolver: zodResolver(customerSchema),
     defaultValues: customer || {
       name: "",
@@ -55,7 +55,8 @@ export default function CustomerForm({ customer, onCancel }: CustomerFormProps) 
         return;
       }
 
-      router.push("/customers");
+      if (onSuccess) onSuccess();
+      onCancel();
       router.refresh();
     } catch {
       setError("An unexpected error occurred");

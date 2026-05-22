@@ -54,7 +54,7 @@ create table jobs (
   customer_id uuid references customers on delete cascade not null,
   title text not null,
   description text,
-  status text check (status in ('draft', 'scheduled', 'completed', 'cancelled')) default 'draft',
+  status text check (status in ('quoted', 'scheduled', 'in_progress', 'completed', 'invoiced')) default 'quoted',
   trade_type text, -- 'electrician' or 'plumber'
   site_address text,
   site_notes text,

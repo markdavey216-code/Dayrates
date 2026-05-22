@@ -3,9 +3,10 @@
 import { useState, useEffect } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { invoiceSchema, type InvoiceFormData, calculateInvoiceTotals } from "./actions";
-import { createInvoice, updateInvoice, getCustomers } from "./actions";
-import { Plus, Trash2, Calculator, ChevronDown, ChevronUp } from "lucide-react";
+import { calculateInvoiceTotals } from "./calculation";
+import { type InvoiceFormData, invoiceSchema } from "./schema";
+import { createInvoice, updateInvoice } from "./actions";
+import { Trash2, Calculator, ChevronDown, ChevronUp } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { Customer } from "./types";
 
@@ -29,9 +30,7 @@ export default function BuilderForm({ userProfile, invoiceId, initialData, custo
     handleSubmit,
     control,
     watch,
-    setValue,
     formState: { errors },
-    reset,
   } = useForm<InvoiceFormData>({
     resolver: zodResolver(invoiceSchema),
     defaultValues: initialData || {
@@ -82,7 +81,7 @@ export default function BuilderForm({ userProfile, invoiceId, initialData, custo
       );
       setCalculations(totals);
     }
-  }, [selectedCustomer]);
+  }, [selectedCustomer, userProfile, watch, watchedLineItems, watchedCisRate, watchedUseVatReverseCharge]);
 
   // CIS and VAT toggle visibility
   const showCisOptions = !!userProfile.cis_number && selectedCustomer?.is_cis_contractor;

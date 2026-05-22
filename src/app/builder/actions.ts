@@ -3,75 +3,8 @@
 import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { z } from "zod";
-import { calculateInvoiceTotals, type InvoiceFormData } from "./calculation";
-
-// Schema for invoice form validation
-export const lineItemSchema = z.object({
-  description: z.string().min(1, "Description is required"),
-  quantity: z.number().min(0.01, "Quantity must be at least 0.01"),
-  unit_price: z.number().min(0, "Unit price cannot be negative"),
-  type: z.enum(["labour", "materials"]),
-  vat_rate: z.number().default(0.2),
-});
-
-export const invoiceSchema = z.object({
-  id: z.string().uuid().optional(),
-  customer_id: z.string().uuid("Please select a customer"),
-  invoice_number: z.string().optional(),
-  type: z.enum(["quote", "invoice"]).default("invoice"),
-  status: z.enum(["draft", "sent", "paid", "overdue"]).default("draft"),
-  issue_date: z.string(),
-  due_date: z.string(),
-  use_vat_reverse_charge: z.boolean().default(false),
-  cis_rate: z.number().optional(),
-  notes: z.string().optional(),
-  line_items: z.array(lineItemSchema).min(1, "At least one line item is required"),
-});
-
-export type InvoiceFormData = z.infer<typeof invoiceSchema>;
-
-// Calculation logic (UK Specific)
-export function calculateInvoiceTotals(
-  data: InvoiceFormData,
-  userProfile: { cis_number?: string; vat_number?: string },
-  customer: { is_cis_contractor: boolean }
-) {
-  let subtotalLabour = 0;
-  let subtotalMaterials = 0;
-  let totalVat = 0;
-
-  data.line_items.forEach((item) => {
-    const itemTotal = item.quantity * item.unit_price;
-    if (item.type === "labour") subtotalLabour += itemTotal;
-    else subtotalMaterials += itemTotal;
-
-    // VAT logic - only apply if not using reverse charge
-    if (!data.use_vat_reverse_charge) {
-      totalVat += itemTotal * item.vat_rate;
-    }
-  });
-
-  // CIS logic: Only trigger if owner has CIS number AND customer is a CIS contractor
-  let cisDeduction = 0;
-  const canApplyCis = !!userProfile.cis_number && customer.is_cis_contractor;
-
-  if (canApplyCis && data.cis_rate) {
-    cisDeduction = subtotalLabour * data.cis_rate;
-  }
-
-  const grandTotal = subtotalLabour + subtotalMaterials + totalVat - cisDeduction;
-
-  return {
-    subtotalLabour,
-    subtotalMaterials,
-    totalVat,
-    cisDeduction,
-    grandTotal,
-    showReverseChargeToggle: !!userProfile.vat_number,
-    showCisOptions: canApplyCis,
-  };
-}
+import { calculateInvoiceTotals } from "./calculation";
+import { type InvoiceFormData } from "./schema";
 
 // Get user profile with CIS and VAT settings
 export async function getUserProfile() {
@@ -141,7 +74,7 @@ export async function getNextInvoiceNumber() {
     .from("invoices")
     .select("invoice_number")
     .eq("user_id", user.id)
-    .order("created_at", { descending: true })
+    .order("created_at", { ascending: false })
     .limit(1)
     .single();
 
@@ -318,7 +251,7 @@ export async function getInvoices() {
       customers (name)
     `)
     .eq("user_id", user.id)
-    .order("created_at", { descending: true });
+    .order("created_at", { ascending: false });
 
   return invoices || [];
 }

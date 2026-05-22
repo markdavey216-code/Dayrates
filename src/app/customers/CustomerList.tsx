@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Search, Plus, MoreVertical, Trash2, Edit, Phone, Mail, MapPin, Building2 } from "lucide-react";
-import { deleteCustomer, type CustomerFormData } from "./actions";
+import { deleteCustomer } from "./actions";
+import { type CustomerFormData } from "./schema";
 import CustomerForm from "./CustomerForm";
 
 interface Customer {
@@ -38,6 +39,9 @@ export default function CustomerList() {
       if (response.ok) {
         const data = await response.json();
         setCustomers(data);
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        console.error("Failed to fetch customers:", response.status, errorData);
       }
     } catch (error) {
       console.error("Failed to fetch customers:", error);
@@ -224,8 +228,8 @@ export default function CustomerList() {
       )}
 
       {/* Add/Edit Form Modal */}
-      {showAddForm && <CustomerForm onCancel={closeForm} />}
-      {editingCustomer && <CustomerForm customer={editingCustomer} onCancel={closeForm} />}
+      {showAddForm && <CustomerForm onCancel={closeForm} onSuccess={fetchCustomers} />}
+      {editingCustomer && <CustomerForm customer={editingCustomer} onCancel={closeForm} onSuccess={fetchCustomers} />}
     </div>
   );
 }

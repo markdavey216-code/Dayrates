@@ -1,5 +1,6 @@
 import { getUserProfile, getCustomers, getInvoice } from "./actions";
 import BuilderForm from "./BuilderForm";
+import type { Invoice, LineItem } from "./types";
 
 interface PageProps {
   searchParams: Promise<{ edit?: string }>;
@@ -14,22 +15,22 @@ export default async function BuilderPage({ searchParams }: PageProps) {
 
   let initialData;
   if (params.edit) {
-    const invoice = await getInvoice(params.edit);
+    const invoice = await getInvoice(params.edit) as (Invoice & { line_items: LineItem[] }) | null;
     if (invoice) {
       initialData = {
         customer_id: invoice.customer_id,
-        type: invoice.type as "quote" | "invoice",
-        status: invoice.status as "draft" | "sent" | "paid" | "overdue",
+        type: invoice.type,
+        status: invoice.status,
         issue_date: invoice.issue_date,
         due_date: invoice.due_date,
         use_vat_reverse_charge: invoice.vat_reverse_charge,
         cis_rate: invoice.cis_rate || 0.2,
         notes: invoice.notes || "",
-        line_items: invoice.line_items.map((item: any) => ({
+        line_items: invoice.line_items.map((item: LineItem) => ({
           description: item.description,
           quantity: Number(item.quantity),
           unit_price: Number(item.unit_price),
-          type: item.type as "labour" | "materials",
+          type: item.type,
           vat_rate: Number(item.vat_rate),
         })),
       };
