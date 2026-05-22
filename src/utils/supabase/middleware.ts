@@ -39,57 +39,56 @@ export async function updateSession(request: NextRequest) {
   const url = request.nextUrl.clone();
   const path = url.pathname;
 
-  // Public paths that don't need auth check beyond basic user detection
-  const isAuthPath = path === "/login" || path === "/signup";
-  const isLandingPage = path === "/";
-  // App paths that REQUIRE auth
-  const isAppPath = [
+  // Define protected paths
+  const protectedPaths = [
     "/dashboard",
     "/builder",
     "/calendar",
     "/customers",
     "/tax",
     "/onboarding",
-  ].some((p) => path.startsWith(p));
+  ];
+  const isProtectedPath = protectedPaths.some((p) => path.startsWith(p));
 
-  // Case 1: No user session
-  if (!user) {
-    // If trying to access app, send to login
-    if (isAppPath) {
-      url.pathname = "/login";
-      return NextResponse.redirect(url);
-    }
-    // Otherwise allow access to landing, login, signup
-    return response;
+  // Get onboarding status if user exists
+  let onboardingCompleted = false;
+  if (user) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("onboarding_completed")
+      .eq("id", user.id)
+      .single();
+    onboardingCompleted = profile?.onboarding_completed === true;
   }
 
-  // Case 2: User session exists
-  // We need to check onboarding status to ensure they don't skip it
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("onboarding_completed")
-    .eq("id", user.id)
-    .single();
+  // 3. Add a console.log at the start showing the current path, session status and onboarding_completed value
+  console.log(`Middleware Debug: path=${path} authenticated=${!!user} onboarding_completed=${onboardingCompleted}`);
 
-  // Handle case where profile might not exist yet (should be rare due to trigger)
-  // or if there's a transient error. We default to not completed to be safe.
-  const onboardingCompleted = profile?.onboarding_completed === true;
-
-  // A. If not completed onboarding and not on onboarding page -> send to onboarding
-  if (!onboardingCompleted && path !== "/onboarding") {
-    // Only redirect if they are on an app path, auth path, or landing
-    if (isAppPath || isAuthPath || isLandingPage) {
-      url.pathname = "/onboarding";
-      return NextResponse.redirect(url);
-    }
-  }
-
-  // B. If completed onboarding and on onboarding page or auth page or landing -> send to dashboard
-  if (onboardingCompleted && (path === "/onboarding" || isAuthPath || isLandingPage)) {
-    url.pathname = "/dashboard";
+  // 1. Unauthenticated user on protected route -> redirect to /login only
+  if (!user && isProtectedPath) {
+    url.pathname = "/login";
     return NextResponse.redirect(url);
   }
 
-  // Allow through to the requested app path (dashboard, builder, etc.)
+  // Handle authenticated users
+  if (user) {
+    // 3. Authenticated user with onboarding_completed = false -> redirect to /onboarding only
+    if (!onboardingCompleted && path !== "/onboarding") {
+      url.pathname = "/onboarding";
+      return NextResponse.redirect(url);
+    }
+
+    // 2. Authenticated user with onboarding_completed = true -> allow through
+    // Additionally, prevent them from accessing /login, /signup, / or /onboarding by sending them to /dashboard
+    if (onboardingCompleted) {
+      const isAuthPage = path === "/login" || path === "/signup" || path === "/";
+      if (isAuthPage || path === "/onboarding") {
+        url.pathname = "/dashboard";
+        return NextResponse.redirect(url);
+      }
+    }
+  }
+
+  // Allow through to the requested path
   return response;
 }
